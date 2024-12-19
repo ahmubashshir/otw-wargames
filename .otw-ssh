@@ -1,16 +1,18 @@
 #!/bin/sh
+mkdir -p "$0.d"
+SSH_KHF="$0.d/.hosts"
+
 err()
 {
 	echo >&2 "$*"
 }
-
 ssh()
 {
 	exec ssh \
 		-F /dev/null \
 		-o PreferredAuthentications=password \
 		-o StrictHostKeyChecking=accept-new \
-		-o UserKnownHostsFile=/dev/null \
+		-o UserKnownHostsFile="$SSH_KHF" \
 		-o NumberOfPasswordPrompts=1 \
 		"$@"
 }
@@ -60,7 +62,7 @@ elif [ "${PASS%%:*}" = "@level" ]; then
 
 elif [ "$1" = "@level" ]; then
 	lvl="$2"
-	shift     2
+	shift   2
 
 	#shellcheck disable=SC2155
 	export SSH_ASKPASS="$0"
@@ -74,7 +76,7 @@ elif [ "$1" = "last" ]; then
 	llv=$(printf '%s\n' "${0}.d"/*.sh | sed -nE '$s@^.+/([0-9]+)\.sh@\1@p')
 	exec "$0" @level "$llv"
 elif ! echo "$1" | grep -qE '^[0-9]+$'; then
-	:                                       # handle non-numerics
+	:                                     # handle non-numerics
 	err "> $1"
 elif [ "$#" -eq 1 ] && [ "${1:-0}" -ge 0 ]; then
 	test -f "${0}.d/$1.sh" || [ "${1:-0}" -eq 0 ] && exec "$0" @level "$1"
