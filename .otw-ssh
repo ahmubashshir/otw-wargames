@@ -1,0 +1,87 @@
+#!/bin/sh
+err()
+{
+	echo >&2 "$*"
+}
+
+ssh()
+{
+	exec ssh \
+		-F /dev/null \
+		-o PreferredAuthentications=password \
+		-o StrictHostKeyChecking=accept-new \
+		-o UserKnownHostsFile=/dev/null \
+		-o NumberOfPasswordPrompts=1 \
+		"$@"
+}
+
+if [ "${PASS%%:*}" = "@echo" ]; then
+	echo "${PASS#@echo:}"
+elif [ "${PASS%%:*}" = "@level" ]; then
+	lvl="${PASS#@level:}"
+	[ -f "${0}.d/cache" ] || touch "${0}.d/cache"
+	llv=$(printf '%s\n' "${0}.d"/*.sh | sed -nE '$s@^.+/([0-9]+)\.sh@\1@p')
+
+	while read -r clv pass; do
+		[ "$clv" -eq "$lvl" ] && break
+	done < "${0}.d/cache"
+
+	if [ "$clv" ] && [ "$lvl" -eq "$clv" ]; then
+		if (PASS="@echo:$pass" \
+			ssh -qTl "${0##*/}$lvl" \
+			"${0##*/}.labs.overthewire.org" \
+			-p 2220 true); then
+			echo "$pass"
+			err "> Using cached password for Level $lvl"
+		else
+			err "> Invalid password in cache for Level $lvl"
+			# shellcheck disable=SC1087
+			sed -i "/^$lvl[[:space:]]/d" "${0}.d/cache"
+			exec "$0"
+		fi
+	elif [ "$lvl" -gt 0 ]; then
+		pass=$(PASS="@level:$((lvl - 1))" "$0" "@level:$((lvl - 1))")
+		pass=$(
+			PASS="@echo:$pass" \
+				ssh -qTl "${0##*/}$((lvl - 1))" \
+				"${0##*/}.labs.overthewire.org" \
+				-p 2220 \
+				bash -x < "${0}.d/$lvl.sh"
+		)
+		err "> Retrived Level $lvl password"
+		if ! [ -f "${0}.d/cache" ] || [ "$lvl" -gt "${clv:-0}" ]; then
+			err "> Caching Level $lvl password"
+			echo "$lvl $pass" >> "${0}.d/cache"
+		fi
+		echo "$pass"
+	else
+		echo "${0##*/}0"
+	fi
+
+elif [ "$1" = "@level" ]; then
+	lvl="$2"
+	shift       2
+
+	#shellcheck disable=SC2155
+	export SSH_ASKPASS="$0"
+	export SSH_ASKPASS_REQUIRE=force
+	export PASS="@echo:$(PASS="@level:$lvl" "$0" "@level:$lvl")" # pass password
+
+	set -x
+	ssh \
+		-l "${0##*/}$lvl" "${0##*/}.labs.overthewire.org" -p 2220 "$@"
+elif [ "$1" = "last" ] || [ "$1" = "next" ]; then
+	llv=$(printf '%s\n' "${0}.d"/*.sh | sed -nE '$s@^.+/([0-9]+)\.sh@\1@p')
+	exec "$0" @level "$llv"
+elif ! echo "$1" | grep -qE '^[0-9]+$'; then
+	:                                         # handle non-numerics
+	err "> $1"
+elif [ "$#" -eq 1 ] && [ "${1:-0}" -ge 0 ]; then
+	test -f "${0}.d/$1.sh" || [ "${1:-0}" -eq 0 ] && exec "$0" @level "$1"
+	echo >&2 "warn! Level $1 not done..."
+	echo >&2 "      continuing from last level..."
+	exec "$0" last
+elif [ "$#" -eq 0 ]; then
+	echo >&2 "Usage: ${0##*/} [level | last]"
+	echo >&2 "  Play overthewire wargame: ${0##*/}"
+fi
