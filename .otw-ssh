@@ -60,7 +60,7 @@ elif [ "${PASS%%:*}" = "@level" ]; then
 
 elif [ "$1" = "@level" ]; then
 	lvl="$2"
-	shift       2
+	shift     2
 
 	#shellcheck disable=SC2155
 	export SSH_ASKPASS="$0"
@@ -70,11 +70,11 @@ elif [ "$1" = "@level" ]; then
 	set -x
 	ssh \
 		-l "${0##*/}$lvl" "${0##*/}.labs.overthewire.org" -p 2220 "$@"
-elif [ "$1" = "last" ] || [ "$1" = "next" ]; then
+elif [ "$1" = "last" ]; then
 	llv=$(printf '%s\n' "${0}.d"/*.sh | sed -nE '$s@^.+/([0-9]+)\.sh@\1@p')
 	exec "$0" @level "$llv"
 elif ! echo "$1" | grep -qE '^[0-9]+$'; then
-	:                                         # handle non-numerics
+	:                                       # handle non-numerics
 	err "> $1"
 elif [ "$#" -eq 1 ] && [ "${1:-0}" -ge 0 ]; then
 	test -f "${0}.d/$1.sh" || [ "${1:-0}" -eq 0 ] && exec "$0" @level "$1"
