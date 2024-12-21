@@ -14,7 +14,6 @@ ssh()
 		@echo:@key)
 			set -- -o IdentityFile="${SSH_KHF%/.hosts}/id.$lvl" "$@"
 			set -- -o PreferredAuthentications=publickey "$@"
-			unset SSH_ASKPASS_REQUIRE SSH_ASKPASS
 			;;
 		@echo:*)
 			set -- -o PreferredAuthentications=password "$@"
@@ -59,6 +58,7 @@ elif [ "${PASS%%:*}" = "@level" ]; then
 		pass=$(PASS="@level:$((lvl - 1))" "$0" "@level:$((lvl - 1))")
 		pass=$(
 			PASS="@echo:$pass" \
+				lvl=$((lvl - 1)) \
 				ssh -qTl "${0##*/}$((lvl - 1))" \
 				"${0##*/}.labs.overthewire.org" \
 				-p 2220 \
@@ -105,7 +105,7 @@ elif [ "$1" = "edit" ]; then
 	fi
 	exec nano "$0.d/$llv.sh" < /dev/tty
 elif ! echo "$1" | grep -qE '^[0-9]+$'; then
-	:                               # handle non-numerics
+	:                             # handle non-numerics
 	err "> $1"
 elif [ "$#" -eq 1 ] && [ "${1:-0}" -ge 0 ]; then
 	test -f "${0}.d/$1.sh" || [ "${1:-0}" -eq 0 ] && exec "$0" @level "$1"
